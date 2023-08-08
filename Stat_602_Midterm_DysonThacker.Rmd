@@ -1,0 +1,212 @@
+---
+title: "Stat_602 Midterm Project"
+author: "Dyson Thacker"
+date: "3/20/2022"
+output: pdf_document
+---
+
+```{r}
+# Set working directory
+setwd("C:/Users/dyson/OneDrive/Documents/School/2022 Spring/STAT 602/Midterm Project")
+
+# Import libraries
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(MASS)
+library(caret)
+library(mgcv)
+
+# Import Dataset
+labeled <- read_csv("labeled.csv")
+```
+
+```{r}
+# Exploratory data analysis
+# Make sure no variables have outliers
+
+hist(labeled$Area)
+hist(labeled$Perimeter)
+hist(labeled$MajorAxisLength)
+hist(labeled$MinorAxisLength)
+hist(labeled$Eccentricity)
+hist(labeled$ConvexArea)
+hist(labeled$Extent)
+# All variables other than Eccentricity and Extent are bimodal
+# Eccentricity and Extent are left skewed
+
+
+labeled %>% 
+  ggplot(aes(x = Area, y = Perimeter, color = Class)) + geom_point()
+
+labeled %>% 
+  ggplot(aes(x = Eccentricity, y = Extent, color = Class)) + geom_point()
+
+labeled %>% 
+  ggplot(aes(x = Area, fill = Class)) + geom_histogram()
+
+labeled %>% 
+  ggplot(aes(x = Perimeter, fill = Class)) + geom_histogram()
+
+labeled %>% 
+  ggplot(aes(x = MajorAxisLength, fill = Class)) + geom_histogram()
+
+labeled %>% 
+  ggplot(aes(x = MinorAxisLength, fill = Class)) + geom_histogram()
+
+labeled %>% 
+  ggplot(aes(x = Eccentricity, fill = Class)) + geom_histogram()
+
+labeled %>% 
+  ggplot(aes(x = ConvexArea, fill = Class)) + geom_histogram()
+
+labeled %>% 
+  ggplot(aes(x = Extent, fill = Class)) + geom_histogram()
+
+# Seems bombays will be very easy to classify based on size (area, perimiter, etc)
+# seker and horoz could probably be classified with a combination of eccentricity and extent
+
+```
+
+
+```{r}
+set.seed(7)
+# Model building
+
+ctrl <- trainControl(method = "cv", number = 10)
+
+model <- train(Class ~ Area + Perimeter + MajorAxisLength + MinorAxisLength + Eccentricity + ConvexArea + Extent,
+               data = labeled,
+               method = "lda",
+               trControl = ctrl)
+
+model1 <- train(Class ~ Area + Perimeter + MajorAxisLength + MinorAxisLength + Eccentricity + ConvexArea + Extent,
+               data = labeled,
+               method = "qda",
+               trControl = ctrl)
+
+model2 <- train(Class ~ Area + Perimeter + MajorAxisLength + MinorAxisLength + Eccentricity + ConvexArea + Extent,
+               data = labeled,
+               method = "rf",
+               trControl = ctrl)
+
+model3 <- train(Class ~ Area + Perimeter + MajorAxisLength + MinorAxisLength + Eccentricity + ConvexArea + Extent,
+               data = labeled,
+               method = "gam",
+               trControl = ctrl)
+
+predictionset <- labeled[,-8]
+
+labeled$lda_prediction <- predict(model, newdata = predictionset, type = "raw")
+labeled$qda_prediction <- predict(model1, newdata = predictionset, type = "raw")
+labeled$rf_prediction <- predict(model2, newdata = predictionset, type = "raw")
+labeled$gam_prediction <- predict(model3, newdata = predictionset, type = "raw")
+
+```
+
+```{r}
+# View model results
+model
+model1
+model2
+model3
+```
+
+
+```{r}
+# How much money do we make per correct seed?
+
+# Bombay
+5.56*1.92/453.592 #0.02353481
+# Cali
+6.02*.61/453.592 #0.008095822
+# Sira
+5.4*.38/453.592 #0.004523889
+# Seker
+2.72*.49/453.592 #0.002938323
+# Horoz
+2.43*.52/453.592 #0.002785763
+# Dermason
+1.98*.28/453.592 #0.001222244
+```
+
+```{r}
+# How accurate are our lda predictions?
+
+labeled1 <- labeled %>% 
+  mutate(good_pred = case_when(Class == lda_prediction ~ 1, TRUE ~ 0))
+
+# How much money did we make with our predictions?
+
+labeled1 <- labeled1 %>%
+  mutate(money_made = case_when(good_pred == 1 & Class == 'BOMBAY' ~ 0.02353481,
+                                good_pred == 1 & Class == 'CALI' ~ 0.008095822,
+                                good_pred == 1 & Class == 'SIRA' ~ 0.004523889,
+                                good_pred == 1 & Class == 'SEKER' ~ 0.002938323,
+                                good_pred == 1 & Class == 'HOROZ' ~ 0.002785763,
+                                good_pred == 1 & Class == 'DERMASON' ~ 0.001222244,
+                                TRUE ~ 0))
+
+sum(labeled1$money_made) #20.14171
+
+```
+```{r}
+# How accurate are our qda predictions?
+
+labeled1 <- labeled %>% 
+  mutate(good_pred = case_when(Class == qda_prediction ~ 1, TRUE ~ 0))
+
+# How much money did we make with our predictions?
+
+labeled1 <- labeled1 %>%
+  mutate(money_made = case_when(good_pred == 1 & Class == 'BOMBAY' ~ 0.02353481,
+                                good_pred == 1 & Class == 'CALI' ~ 0.008095822,
+                                good_pred == 1 & Class == 'SIRA' ~ 0.004523889,
+                                good_pred == 1 & Class == 'SEKER' ~ 0.002938323,
+                                good_pred == 1 & Class == 'HOROZ' ~ 0.002785763,
+                                good_pred == 1 & Class == 'DERMASON' ~ 0.001222244,
+                                TRUE ~ 0))
+
+sum(labeled1$money_made) #20.64429
+```
+```{r}
+# How accurate are our random forest predictions?
+
+labeled1 <- labeled %>% 
+  mutate(good_pred = case_when(Class == rf_prediction ~ 1, TRUE ~ 0))
+
+# How much money did we make with our predictions?
+
+labeled1 <- labeled1 %>%
+  mutate(money_made = case_when(good_pred == 1 & Class == 'BOMBAY' ~ 0.02353481,
+                                good_pred == 1 & Class == 'CALI' ~ 0.008095822,
+                                good_pred == 1 & Class == 'SIRA' ~ 0.004523889,
+                                good_pred == 1 & Class == 'SEKER' ~ 0.002938323,
+                                good_pred == 1 & Class == 'HOROZ' ~ 0.002785763,
+                                good_pred == 1 & Class == 'DERMASON' ~ 0.001222244,
+                                TRUE ~ 0))
+
+sum(labeled1$money_made) #21.55043
+```
+```{r}
+# How accurate are our generalized additive model predictions?
+
+labeled1 <- labeled %>% 
+  mutate(good_pred = case_when(Class == gam_prediction ~ 1, TRUE ~ 0))
+
+# How much money did we make with our predictions?
+
+labeled1 <- labeled1 %>%
+  mutate(money_made = case_when(good_pred == 1 & Class == 'BOMBAY' ~ 0.02353481,
+                                good_pred == 1 & Class == 'CALI' ~ 0.008095822,
+                                good_pred == 1 & Class == 'SIRA' ~ 0.004523889,
+                                good_pred == 1 & Class == 'SEKER' ~ 0.002938323,
+                                good_pred == 1 & Class == 'HOROZ' ~ 0.002785763,
+                                good_pred == 1 & Class == 'DERMASON' ~ 0.001222244,
+                                TRUE ~ 0))
+
+sum(labeled1$money_made) #15.81532
+```
+
+
+
